@@ -105,7 +105,7 @@ module ReputationSystem
       end
 
       def get_weight_of_source_from_reputation_name_of_target(target, source_name, reputation_name)
-        source = get_reputation_def(target.class.name, reputation_name)[:source]
+        source = get_reputation_def(target.class.base_class.name, reputation_name)[:source]
         if source.is_a?(Array)
           source.each do |s|
             srn = get_scoped_reputation_name_from_source_def_and_target(s, target)
@@ -157,7 +157,7 @@ module ReputationSystem
         def get_scoped_reputation_name_from_source_def_and_target(source_def, target)
           scope = target.evaluate_reputation_scope(source_def[:scope]) if source_def[:scope]
           of = target.get_attributes_of(source_def)
-          class_name = (of.is_a?(Array) ? of[0] : of).class.name
+          class_name = (of.is_a?(Array) ? of[0] : of).class.base_class.name
           get_scoped_reputation_name(class_name, source_def[:reputation], scope)
         end
 

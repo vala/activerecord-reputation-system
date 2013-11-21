@@ -20,7 +20,7 @@ module ReputationSystem
       def evaluated_by(reputation_name, source, *args)
         scope = args.first
         srn = ReputationSystem::Network.get_scoped_reputation_name(self.name, reputation_name, scope)
-        source_type = source.class.name
+        source_type = source.class.base_class.name
         options = {}
         options[:select] ||= sanitize_sql_array(["%s.*", self.table_name])
         options[:joins] = sanitize_sql_array(["JOIN rs_evaluations ON %s.id = rs_evaluations.target_id AND rs_evaluations.target_type = ? AND rs_evaluations.reputation_name = ? AND rs_evaluations.source_id = ? AND rs_evaluations.source_type = ?", self.name, srn.to_s, source.id, source_type])
@@ -35,21 +35,21 @@ module ReputationSystem
 
     def has_evaluation?(reputation_name, source, *args)
       scope = args.first
-      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
+      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
       !!ReputationSystem::Evaluation.find_by_reputation_name_and_source_and_target(srn, source, self)
     end
 
 
     def evaluators_for(reputation_name, *args)
       scope = args.first
-      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
+      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
       self.evaluations.for(srn).includes(:source).map(&:source)
     end
 
     def add_evaluation(reputation_name, value, source, *args)
       scope = args.first
-      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
-      process = ReputationSystem::Network.get_reputation_def(self.class.name, srn)[:aggregated_by]
+      srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
+      process = ReputationSystem::Network.get_reputation_def(self.class.base_class.name, srn)[:aggregated_by]
       evaluation = ReputationSystem::Evaluation.create_evaluation(srn, value, source, self)
       rep = ReputationSystem::Reputation.find_or_create_reputation(srn, self, process)
       ReputationSystem::Reputation.update_reputation_value_with_new_source(rep, evaluation, 1, process)
@@ -60,7 +60,7 @@ module ReputationSystem
       oldValue = evaluation.value
       evaluation.value = value
       evaluation.save!
-      process = ReputationSystem::Network.get_reputation_def(self.class.name, srn)[:aggregated_by]
+      process = ReputationSystem::Network.get_reputation_def(self.class.base_class.name, srn)[:aggregated_by]
       rep = ReputationSystem::Reputation.find_by_reputation_name_and_target(srn, self)
       newSize = rep.received_messages.size
       ReputationSystem::Reputation.update_reputation_value_with_updated_source(rep, evaluation, oldValue, newSize, 1, process)
@@ -68,7 +68,7 @@ module ReputationSystem
 
     def add_or_update_evaluation(reputation_name, value, source, *args)
       srn, evaluation = find_srn_and_evaluation(reputation_name, source, args.first)
-      if ReputationSystem::Evaluation.exists? :reputation_name => srn, :source_id => source.id, :source_type => source.class.name, :target_id => self.id, :target_type => self.class.name
+      if ReputationSystem::Evaluation.exists? :reputation_name => srn, :source_id => source.id, :source_type => source.class.base_class.name, :target_id => self.id, :target_type => self.class.base_class.name
         self.update_evaluation(reputation_name, value, source, *args)
       else
         self.add_evaluation(reputation_name, value, source, *args)
@@ -99,25 +99,25 @@ module ReputationSystem
 
     protected
       def find_srn_and_evaluation(reputation_name, source, scope)
-        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
+        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
         evaluation = ReputationSystem::Evaluation.find_by_reputation_name_and_source_and_target(srn, source, self)
         return srn, evaluation
       end
 
       def find_srn_and_evaluation!(reputation_name, source, scope)
-        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
+        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
         evaluation = find_evaluation!(reputation_name, srn, source)
         return srn, evaluation
       end
 
       def find_evaluation!(reputation_name, srn, source)
         evaluation = ReputationSystem::Evaluation.find_by_reputation_name_and_source_and_target(srn, source, self)
-        raise ArgumentError, "Given instance of #{source.class.name} has not evaluated #{reputation_name} of the instance of #{self.class.name} yet." unless evaluation
+        raise ArgumentError, "Given instance of #{source.class.base_class.name} has not evaluated #{reputation_name} of the instance of #{self.class.base_class.name} yet." unless evaluation
         evaluation
       end
 
       def delete_evaluation_without_validation(srn, evaluation)
-        process = ReputationSystem::Network.get_reputation_def(self.class.name, srn)[:aggregated_by]
+        process = ReputationSystem::Network.get_reputation_def(self.class.base_class.name, srn)[:aggregated_by]
         oldValue = evaluation.value
         evaluation.value = process == :product ? 1 : 0
         rep = ReputationSystem::Reputation.find_by_reputation_name_and_target(srn, self)
@@ -128,7 +128,7 @@ module ReputationSystem
 
       def change_evaluation_value_by(reputation_name, value, source, *args)
         scope = args.first
-        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
+        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
         evaluation = ReputationSystem::Evaluation.find_by_reputation_name_and_source_and_target(srn, source, self)
         if evaluation.nil?
           self.add_evaluation(reputation_name, value, source, scope)

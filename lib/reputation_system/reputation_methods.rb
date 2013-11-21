@@ -25,37 +25,37 @@ module ReputationSystem
     end
 
     def activate_all_reputations
-      ReputationSystem::Reputation.where(:target_id => self.id, :target_type => self.class.name, :active => false).each do |r|
+      ReputationSystem::Reputation.where(:target_id => self.id, :target_type => self.class.base_class.name, :active => false).each do |r|
         r.active = true
         r.save!
       end
     end
 
     def deactivate_all_reputations
-      ReputationSystem::Reputation.where(:target_id => self.id, :target_type => self.class.name, :active => true).each do |r|
+      ReputationSystem::Reputation.where(:target_id => self.id, :target_type => self.class.base_class.name, :active => true).each do |r|
         r.active = false
         r.save!
       end
     end
 
     def reputations_activated?(reputation_name)
-      r = ReputationSystem::Reputation.where(:reputation_name => reputation_name.to_s, :target_id => self.id, :target_type => self.class.name).first
+      r = ReputationSystem::Reputation.where(:reputation_name => reputation_name.to_s, :target_id => self.id, :target_type => self.class.base_class.name).first
       r ? r.active : false
     end
 
     def rank_for(reputation_name, *args)
       scope = args.first
       my_value = self.reputation_for(reputation_name, scope)
-      self.class.count_with_reputation(reputation_name, scope, :all,
+      self.class.base_class.count_with_reputation(reputation_name, scope, :all,
         :conditions => ["rs_reputations.value > ?", my_value]
       ) + 1
     end
 
     protected
       def find_reputation(reputation_name, scope)
-        raise ArgumentError, "#{reputation_name} is not valid" if !self.class.has_reputation_for?(reputation_name)
-        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.name, reputation_name, scope)
-        process = ReputationSystem::Network.get_reputation_def(self.class.name, srn)[:aggregated_by]
+        raise ArgumentError, "#{reputation_name} is not valid" if !self.class.base_class.has_reputation_for?(reputation_name)
+        srn = ReputationSystem::Network.get_scoped_reputation_name(self.class.base_class.name, reputation_name, scope)
+        process = ReputationSystem::Network.get_reputation_def(self.class.base_class.name, srn)[:aggregated_by]
         ReputationSystem::Reputation.find_or_create_reputation(srn, self, process)
       end
   end

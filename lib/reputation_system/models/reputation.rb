@@ -50,7 +50,7 @@ module ReputationSystem
 
     def self.create_reputation(reputation_name, target, process)
       create_options = {:reputation_name => reputation_name.to_s, :target_id => target.id,
-                        :target_type => target.class.name, :aggregated_by => process.to_s}
+                        :target_type => target.class.base_class.name, :aggregated_by => process.to_s}
       rep = create(create_options)
       initialize_reputation_value(rep, target, process)
     end
@@ -120,8 +120,8 @@ module ReputationSystem
       # Updates reputation value for new reputation if its source already exist.
       def self.initialize_reputation_value(receiver, target, process)
         name = receiver.reputation_name
-        unless ReputationSystem::Network.is_primary_reputation?(target.class.name, name)
-          sender_defs = ReputationSystem::Network.get_reputation_def(target.class.name, name)[:source]
+        unless ReputationSystem::Network.is_primary_reputation?(target.class.base_class.name, name)
+          sender_defs = ReputationSystem::Network.get_reputation_def(target.class.base_class.name, name)[:source]
           sender_defs.each do |sd|
             sender_targets = target.get_attributes_of(sd)
             sender_targets.each do |st|
@@ -134,7 +134,7 @@ module ReputationSystem
 
       # Propagates updated reputation value to the reputations whose source is the updated reputation.
       def self.propagate_updated_reputation_value(sender, oldValue)
-        receiver_defs = ReputationSystem::Network.get_reputation_def(sender.target.class.name, sender.reputation_name)[:source_of]
+        receiver_defs = ReputationSystem::Network.get_reputation_def(sender.target.class.base_class.name, sender.reputation_name)[:source_of]
         receiver_defs.each do |rd|
           targets = sender.target.get_attributes_of(rd)
           targets.each do |target|
@@ -145,8 +145,8 @@ module ReputationSystem
       end
 
       def self.send_reputation_message_to_receiver(reputation_name, sender, target, scope, oldValue)
-        srn = ReputationSystem::Network.get_scoped_reputation_name(target.class.name, reputation_name, scope)
-        process = ReputationSystem::Network.get_reputation_def(target.class.name, srn)[:aggregated_by]
+        srn = ReputationSystem::Network.get_scoped_reputation_name(target.class.base_class.name, reputation_name, scope)
+        process = ReputationSystem::Network.get_reputation_def(target.class.base_class.name, srn)[:aggregated_by]
         receiver = find_by_reputation_name_and_target(srn, target)
         if receiver
           weight = ReputationSystem::Network.get_weight_of_source_from_reputation_name_of_target(target, sender.reputation_name, srn)
@@ -168,7 +168,7 @@ module ReputationSystem
 
       def self.update_reputation_if_source_exist(sd, st, receiver, process)
         scope = receiver.target.evaluate_reputation_scope(sd[:scope])
-        srn = ReputationSystem::Network.get_scoped_reputation_name(st.class.name, sd[:reputation], scope)
+        srn = ReputationSystem::Network.get_scoped_reputation_name(st.class.base_class.name, sd[:reputation], scope)
         source = find_by_reputation_name_and_target(srn, st)
         if source
           update_reputation_value_with_new_source(receiver, source, sd[:weight], process)
@@ -204,7 +204,7 @@ module ReputationSystem
       end
 
       def remove_associated_messages
-        ReputationSystem::ReputationMessage.delete_all(:sender_type => self.class.name, :sender_id => self.id)
+        ReputationSystem::ReputationMessage.delete_all(:sender_type => self.class.base_class.name, :sender_id => self.id)
         ReputationSystem::ReputationMessage.delete_all(:receiver_id => self.id)
       end
   end
